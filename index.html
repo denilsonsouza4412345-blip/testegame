@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jogo de Dados</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #fff;
+  text-align: center;
+}
+
+.player-bar {
+  background: #ff8c2a;
+  padding: 12px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* ===== PROGRESSO + VITÓRIAS ===== */
+.progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 5px 20px 15px;
+}
+
+.progress-container {
+  flex: 1;
+  border: 2px solid #000;
+  height: 18px;
+}
+
+.progress {
+  height: 100%;
+  width: 0%;
+  background: #00a8e8;
+  transition: width 0.3s;
+}
+
+.contador {
+  font-weight: bold;
+  font-size: 16px;
+  min-width: 55px;
+}
+
+/* ===== JOGO ===== */
+.center {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.dice-area {
+  background: #ffd400;
+  border: 3px solid #000;
+  padding: 15px;
+  display: flex;
+  gap: 15px;
+}
+
+.dice {
+  width: 70px;
+  height: 70px;
+  border: 3px solid #000;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 8px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  background: black;
+  border-radius: 50%;
+  justify-self: center;
+  align-self: center;
+  visibility: hidden;
+}
+
+#dados-selecao {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 10px;
+  max-width: 95vw;
+  margin: auto;
+}
+
+.dado-selecao {
+  aspect-ratio: 1;
+  border: 3px solid #000;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.dado-selecao:active {
+  transform: scale(0.95);
+  background: #e0f7ff;
+}
+
+button {
+  margin-top: 10px;
+  padding: 15px 25px;
+  font-size: 18px;
+  border-radius: 15px;
+  border: 2px solid #000;
+  background: #aee8f2;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#mensagem {
+  margin: 10px;
+  font-weight: bold;
+}
+
+#pos-vitoria {
+  display: none;
+  padding: 15px;
+}
+
+#opcoes button {
+  width: 100%;
+  margin: 6px 0;
+}
+
+/* ===== OVERLAY FOTO ===== */
+#overlay-foto {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.95);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+#overlay-foto img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.dado-selecao.selecionado {
+  border-color: #00a8e8;
+  background: #e0f7ff;
+  box-shadow: 0 0 12px rgba(0, 168, 232, 0.9);
+  transform: scale(1.05);
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- OVERLAY FOTO -->
+<div id="overlay-foto">
+  <img id="overlay-img">
+</div>
+
+<!-- JOGADOR 1 -->
+<div class="player-bar">Jogador 1</div>
+<div class="progress-wrapper">
+  <div class="progress-container">
+    <div class="progress" id="bar1"></div>
+  </div>
+  <span class="contador" id="wins1">🏆 0</span>
+</div>
+
+<div id="mensagem">Aguardando conexão...</div>
+
+<div id="selecao">
+  <p>Escolha seu número</p>
+  <div id="dados-selecao"></div>
+  <button id="btnEnviar" disabled>Enviar</button>
+</div>
+
+<div class="center">
+  <div class="dice-area">
+    <div class="dice" id="dice1"></div>
+    <div class="dice" id="dice2"></div>
+  </div>
+</div>
+
+<!-- JOGADOR 2 -->
+<div class="progress-wrapper">
+  <div class="progress-container">
+    <div class="progress" id="bar2"></div>
+  </div>
+  <span class="contador" id="wins2">🏆 0</span>
+</div>
+
+<div class="player-bar">Jogador 2</div>
+
+<div id="pos-vitoria">
+  <h3 id="titulo-vitoria"></h3>
+  <div id="opcoes"></div>
+  <p id="mensagem-final"></p>
+
+  <input
+    type="file"
+    id="inputFoto"
+    accept="image/*"
+    capture="environment"
+    style="display:none"
+  />
+
+  <img id="preview" style="max-width:200px; display:none;">
+</div>
+
+<script>
+// ===== REFERÊNCIAS DO DOM =====
+const overlay_foto = document.getElementById("overlay-foto");
+const overlay_img = document.getElementById("overlay-img");
+
+const dados_selecao = document.getElementById("dados-selecao");
+const selecao = document.getElementById("selecao");
+const pos_vitoria = document.getElementById("pos-vitoria");
+
+const mensagem = document.getElementById("mensagem");
+const titulo_vitoria = document.getElementById("titulo-vitoria");
+const mensagem_final = document.getElementById("mensagem-final");
+const opcoes = document.getElementById("opcoes");
+
+const bar1 = document.getElementById("bar1");
+const bar2 = document.getElementById("bar2");
+const wins1 = document.getElementById("wins1");
+const wins2 = document.getElementById("wins2");
+
+const btnEnviar = document.getElementById("btnEnviar");
+const inputFoto = document.getElementById("inputFoto");
+
+const socket = new WebSocket(
+  (location.protocol === "https:" ? "wss://" : "ws://") + location.host
+);
+
+const maxPontos = 10;
+let numeroEscolhido = null;
+let bloqueado = false;
+let meuId = null;
+
+const posicoes = {
+  1: [4],
+  2: [0,8],
+  3: [0,4,8],
+  4: [0,2,6,8],
+  5: [0,2,4,6,8],
+  6: [0,2,3,5,6,8]
+};
+
+socket.onmessage = e => {
+  const data = JSON.parse(e.data);
+
+  if (data.tipo === "init") {
+    meuId = data.jogador;
+    mensagem.innerText = "Você é o Jogador " + meuId;
+    mostrarSelecao();
+  }
+
+  if (data.tipo === "resultado") {
+    criarDado(dice1, data.dado1);
+    criarDado(dice2, data.dado2);
+
+    bar1.style.width = (data.pontos1 / maxPontos) * 100 + "%";
+    bar2.style.width = (data.pontos2 / maxPontos) * 100 + "%";
+
+    wins1.innerText = "🏆 " + data.vitorias1;
+    wins2.innerText = "🏆 " + data.vitorias2;
+
+    bloqueado = false;
+    mostrarSelecao();
+  }
+
+  if (data.tipo === "vitoria") {
+    wins1.innerText = "🏆 " + data.vitorias1;
+    wins2.innerText = "🏆 " + data.vitorias2;
+
+    selecao.style.display = "none";
+    pos_vitoria.style.display = "block";
+    opcoes.innerHTML = "";
+    mensagem_final.innerText = "";
+
+    if (meuId === data.vencedor) {
+      titulo_vitoria.innerText = "Você venceu! Escolha uma opção:";
+      data.opcoes.forEach(op => {
+        const btn = document.createElement("button");
+        btn.innerText = op;
+        btn.onclick = () => socket.send(JSON.stringify({ tipo: "opcaoEscolhida", opcao: op }));
+        opcoes.appendChild(btn);
+      });
+    } else {
+      titulo_vitoria.innerText = "Aguardando escolha do vencedor...";
+    }
+  }
+
+  if (data.tipo === "opcaoFinal" && meuId !== data.vencedor) {
+    criarBotaoCumprir();
+  }
+
+  if (data.tipo === "fotoRecebida") {
+    overlay_img.src = data.url;
+    overlay_foto.style.display = "flex";
+  }
+
+  if (data.tipo === "reset") {
+    bar1.style.width = "0%";
+    bar2.style.width = "0%";
+    overlay_foto.style.display = "none";
+    pos_vitoria.style.display = "none";
+    mostrarSelecao();
+  }
+};
+
+function mostrarSelecao() {
+  selecao.style.display = "block";
+  montarSelecao();
+}
+
+function montarSelecao() {
+  const c = dados_selecao;
+  c.innerHTML = "";
+  numeroEscolhido = null;
+  btnEnviar.disabled = true;
+
+  for (let i = 1; i <= 6; i++) {
+    const d = document.createElement("div");
+    d.className = "dado-selecao";
+    d.dataset.valor = i;
+
+    for (let j = 0; j < 9; j++) {
+      const dot = document.createElement("div");
+      dot.className = "dot";
+      if (posicoes[i].includes(j)) dot.style.visibility = "visible";
+      d.appendChild(dot);
+    }
+
+    d.onclick = () => {
+      if (bloqueado) return;
+
+      // remove destaque de todos
+      document
+        .querySelectorAll(".dado-selecao")
+        .forEach(el => el.classList.remove("selecionado"));
+
+      // destaca o clicado
+      d.classList.add("selecionado");
+
+      numeroEscolhido = i;
+      btnEnviar.disabled = false;
+    };
+
+    c.appendChild(d);
+  }
+}
+
+
+btnEnviar.onclick = () => {
+  bloqueado = true;
+  socket.send(JSON.stringify({ tipo: "escolha", valor: numeroEscolhido }));
+};
+
+function criarDado(el, num) {
+  el.innerHTML = "";
+  for (let i = 0; i < 9; i++) {
+    const dot = document.createElement("div");
+    dot.className = "dot";
+    if (posicoes[num].includes(i)) dot.style.visibility = "visible";
+    el.appendChild(dot);
+  }
+}
+
+function criarBotaoCumprir() {
+  const btn = document.createElement("button");
+  btn.innerText = "CUMPRIR";
+  btn.onclick = () => inputFoto.click();
+  opcoes.appendChild(btn);
+}
+
+inputFoto.onchange = async () => {
+  const fd = new FormData();
+  fd.append("foto", inputFoto.files[0]);
+
+  const res = await fetch("/upload", { method: "POST", body: fd });
+  const data = await res.json();
+
+  socket.send(JSON.stringify({ tipo: "fotoEnviada", url: data.url }));
+};
+
+overlay_foto.onclick = () => {
+  overlay_foto.style.display = "none";
+  socket.send(JSON.stringify({ tipo: "resetJogo" }));
+};
+</script>
+
+</body>
+</html>
