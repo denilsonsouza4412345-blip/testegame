@@ -246,9 +246,13 @@ const wins2 = document.getElementById("wins2");
 const btnEnviar = document.getElementById("btnEnviar");
 const inputFoto = document.getElementById("inputFoto");
 
+/*
 const socket = new WebSocket(
   (location.protocol === "https:" ? "wss://" : "ws://") + location.host
 );
+*/
+
+const socket = new WebSocket("wss://fcf98ee27ef0.ngrok-free.app");
 
 const maxPontos = 10;
 let numeroEscolhido = null;
